@@ -22,7 +22,7 @@ if module==1:
     try:
         #Scan de tout les ports de la cible
         for port in range(1,65535):
-            s=socket.socket(socket.AF_INET,scoket.SOCK_STREAM)
+            s=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
             socket.setdefaulttimeout(0.5)
             #Return open port
             result = s.connect_ex((target,port))

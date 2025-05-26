@@ -1,5 +1,6 @@
 import sys
 import socket
+import nmap
 #import scapy.all as scapy (J'ai enlever la librairie pour l'instant car j'ai quelque bug a gérer avec le rest)
 from datetime import datetime
 
@@ -8,34 +9,36 @@ module=0
 while(module<1 or module>5):
     module =input(("Choose module \n 1-SOC \n 2-SaaS \n 3-Infrastructure \n 4-Client Support \n 5- HR \n"))
     module=int(module)
-5
 if module==1:
     print("1 SOC")
     #=================================SOC,EDR,XDR=================================
     #Begin
     #===============NMAP===============
     #Begin
-    target = input(str("Target IP: "))
-    with open("demofile.txt", "w") as f:
-        f.write("1 SOC")
-        f.write("Target IP: ",target)
-    try:
-        #Scan de tout les ports de la cible
-        for port in range(1,65535):
-            s=socket.socket(socket.AF_INET,scoket.SOCK_STREAM)
-            socket.setdefaulttimeout(0.5)
-            #Return open port
-            result = s.connect_ex((target,port))
-            f.write("\n")
-        if result == 0:
-            print("[*] Port {} is open".format(port))
-            f.write("[*] Port {} is open".format(port))
-        s.close()
-    except KeyboardInterrupt:
-        print("\n Exoiteng :")
-    except socket.error:
-        print("\ Host not respond")
-        sys.exit()
+    scanner = nmap.PortScanner()
+    print("Welcome, this is a simple nmap automation tool")
+    print("<----------------------------------------------------->")
+    
+    ip_addr = input("Please enter the IP address you want to scan: ")
+    print("The IP you entered is: ", ip_addr)
+    type(ip_addr)
+    
+    resp = input("""\nPlease enter the type of scan you want to run
+                    1)SYN ACK Scan
+                    2)UDP Scan
+                    3)Comprehensive Scan \n""")
+    print("You have selected option: ", resp)
+    resp_dict={'1':['-v -sS','tcp'],'2':['-v -sU','udp'],'3':['-v -sS -sV -sC -A -O','tcp']}
+    if resp not in resp_dict.keys():
+        print("enter a valid option")
+    else:
+        print("nmap version: "sccaner.nmap_version())
+        scanner.scan(ip_addr,"1-1024",resp_dict[resp][0]) #the # are port range to scan, the last part is the scan type
+        print(scanner.scaninfo())
+        if scanner.scaninfo()=='up':
+            print("Scanner Status: ",scanner[ip_addr].state())
+            print(scanner[ip_addr].all_protocols())
+            print("Open Ports: ",scanner[ip_addr][resp_dict[resp][1]].keys())  #display all open ports
     #End
     #===============NMAP===============
     #===============Metasploit===============

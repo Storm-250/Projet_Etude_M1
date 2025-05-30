@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pentest Toolkit</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        h1 { color: #444; }
+        form { margin-top: 20px; }
+        input[type="text"] { width: 300px; padding: 8px; }
+        .tool-list { margin-top: 10px; }
+        .tool-list label { display: block; margin: 5px 0; }
+        button { padding: 10px 15px; background-color: #007BFF; color: white; border: none; }
+    </style>
+</head>
+<body>
+    <h1>Pentest Toolkit Interface</h1>
+    <form method="POST">
+        <label for="target">Cible (URL ou IP) :</label>
+        <input type="text" name="target" required>
+
+        <div class="tool-list">
+            <p>Sélectionner les outils :</p>
+            {% for tool in tools %}
+                <label><input type="checkbox" name="tools" value="{{ tool }}"> {{ tool }}</label>
+            {% endfor %}
+        </div>
+
+        <button type="submit">Lancer le scan</button>
+    </form>
+</body>
+</html>

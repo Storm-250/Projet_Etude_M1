@@ -1,11 +1,11 @@
+version: '3.8'
+
 services:
-  app:
-    build:
-    container_name: PEM1
-    command: uvicorn src.main:app --host 0.0.0.0 --port 80 reload
+  pentest-toolkit:
+    build: .
+    container_name: pentest_toolkit_app
     ports:
-      -80:80
+      - "5000:5000"
     volumes:
-      -.:/code
-    depends_on:
-    
+      - ./reports:/app/reports
+    tty: true

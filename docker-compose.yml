@@ -3,9 +3,9 @@ version: '3.8'
 services:
   pentest-toolkit:
     build: .
-    container_name: pentest_toolkit_app
+    container_name: pentest-toolkit
     ports:
       - "5000:5000"
     volumes:
       - ./reports:/app/reports
-    tty: true
+    restart: unless-stopped

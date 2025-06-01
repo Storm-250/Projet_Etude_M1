@@ -9,13 +9,11 @@ REPORTS_DIR = "reports"
 os.makedirs(REPORTS_DIR, exist_ok=True)
 
 tools = {
-    "Wireshark": "tools/wireshark.py",
     "Nikto": "tools/nikto.py",
     "Hydra": "tools/hydra.py",
     "Nmap": "tools/nmap_msf.py",
     "Feroxbuster": "tools/feroxbuster.py",
     "HTTPS Test": "tools/https_test.py",
-    "OWASP ZAP": "tools/zap.py",
     "SQLmap": "tools/sqlmap.py",
     "Gobuster": "tools/gobuster.py"
 }
@@ -48,4 +46,4 @@ def report_file(filename):
     return f"<pre>{content}</pre>"
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)

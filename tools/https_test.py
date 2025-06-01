@@ -1,7 +1,14 @@
-import sys, subprocess
+import subprocess, sys, os
 
-target, timestamp = sys.argv[1], sys.argv[2]
-report = f"reports/https_test_{timestamp}.txt"
+def run_https_test(target, timestamp):
+    output_file = f"reports/https_{timestamp}.txt"
+    try:
+        with open(output_file, "w") as f:
+            subprocess.run(["curl", "-Iv", target], stdout=f, stderr=subprocess.STDOUT)
+    except Exception as e:
+        with open(output_file, "w") as f:
+            f.write(f"Erreur curl : {e}")
 
-with open(report, "w") as f:
-    subprocess.run(["curl", "-k", "-I", target], stdout=f, stderr=subprocess.STDOUT)
+if __name__ == "__main__":
+    if len(sys.argv) != 3: sys.exit(1)
+    run_https_test(sys.argv[1], sys.argv[2])

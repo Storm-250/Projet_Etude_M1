@@ -1,32 +1,25 @@
-FROM python:3.10-slim
+FROM python:3.11-slim
 
-# Installer les outils système nécessaires
 RUN apt-get update && apt-get install -y \
-    nikto \
-    hydra \
-    nmap \
-    curl \
-    feroxbuster \
-    gobuster \
-    wireshark \
-    zaproxy \
-    sqlmap \
+    curl wget git unzip gnupg \
+    hydra nmap gobuster sqlmap \
     && rm -rf /var/lib/apt/lists/*
 
-# Installer Flask
-RUN pip install flask
+# Installer Nikto
+RUN git clone https://github.com/sullo/nikto.git /opt/nikto \
+    && ln -s /opt/nikto/program/nikto.pl /usr/local/bin/nikto \
+    && chmod +x /opt/nikto/program/nikto.pl
 
-# Créer le répertoire de l’application
+# Installer Feroxbuster
+RUN wget https://github.com/epi052/feroxbuster/releases/download/v2.11.0/feroxbuster_amd64.deb.zip \
+    && unzip feroxbuster_amd64.deb.zip \
+    && apt-get install -y ./feroxbuster_2.11.0-1_amd64.deb \
+    && rm feroxbuster_amd64.deb.zip feroxbuster_2.11.0-1_amd64.deb
+
 WORKDIR /app
+COPY . /app
 
-# Copier le code
-COPY . .
+RUN pip install -r requirements.txt
 
-# Créer le dossier des rapports au cas où
-RUN mkdir -p reports
-
-# Exposer le port Flask
 EXPOSE 5000
-
-# Lancer le serveur Flask
 CMD ["python", "app.py"]

@@ -1,16 +1,23 @@
-import subprocess, sys, os
+import sys
+import subprocess
+from datetime import datetime
+from encrypt import encrypt_file
 
-def run_gobuster(target, timestamp):
-    output_file = f"reports/gobuster_{timestamp}.txt"
-    try:
-        with open(output_file, "w") as f:
-            subprocess.run([
-                "gobuster", "dir", "-u", target, "-w", "/usr/share/wordlists/dirb/common.txt"
-            ], stdout=f, stderr=subprocess.STDOUT)
-    except Exception as e:
-        with open(output_file, "w") as f:
-            f.write(f"Erreur Gobuster : {e}")
+if len(sys.argv) < 2:
+    print("Usage: gobuster.py <target>")
+    sys.exit(1)
 
-if __name__ == "__main__":
-    if len(sys.argv) != 3: sys.exit(1)
-    run_gobuster(sys.argv[1], sys.argv[2])
+target = sys.argv[1]
+date = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+html_path = f"rapport/gobuster_{date}.html"
+
+# Utilisation de gobuster pour brute-force des répertoires
+cmd = ["gobuster", "dir", "-u", f"http://{target}", "-w", "/usr/share/wordlists/dirb/common.txt"]
+gobuster_result = subprocess.run(cmd, capture_output=True, text=True).stdout
+
+with open(html_path, "w") as f:
+    f.write("<h1>Résultat Gobuster</h1><pre>")
+    f.write(gobuster_result)
+    f.write("</pre>")
+
+encrypt_file(html_path)

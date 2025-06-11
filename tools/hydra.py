@@ -1,34 +1,23 @@
-import subprocess, sys, os
-import zipfile
+import sys
+from datetime import datetime
+from encrypt import encrypt_file
+import subprocess
 
-def extract_pass_file():
-    zip_path = os.path.join('tools', 'pass.zip')       # chemin du ZIP
-    extract_path = os.path.join('tools', 'pass.txt')       # chemin du fichier extrait
+if len(sys.argv) < 2:
+    print("Usage: hydra.py <target>")
+    sys.exit(1)
 
-    if not os.path.exists(extract_path):
-        try:
-            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                zip_ref.extractall('tools')                # extrait dans le même dossier
-                print("✅ 'pass.txt' extrait avec succès.")
-        except zipfile.BadZipFile:
-            print("❌ Erreur : Le fichier ZIP est corrompu ou invalide.")
-    else:
-        print("ℹ️ 'pass.txt' déjà présent, extraction non nécessaire.")
+target = sys.argv[1]
+date = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+html_path = f"rapport/hydra_{date}.html"
 
-extract_pass_file()
+# Exemple simple : test SSH par défaut (tu peux adapter)
+hydra_cmd = ["hydra", "-L", "users.txt", "-P", "passwords.txt", f"ssh://{target}"]
+hydra_result = subprocess.run(hydra_cmd, capture_output=True, text=True).stdout
 
+with open(html_path, "w") as f:
+    f.write("<h1>Résultat Hydra</h1><pre>")
+    f.write(hydra_result)
+    f.write("</pre>")
 
-def run_hydra(target, timestamp):
-    output_file = f"reports/hydra_{timestamp}.txt"
-    try:
-        with open(output_file, "w") as f:
-            subprocess.run([
-                "hydra", "-L", "user.txt", "-P", "pass.txt", target, "ssh"
-            ], stdout=f, stderr=subprocess.STDOUT)
-    except Exception as e:
-        with open(output_file, "w") as f:
-            f.write(f"Erreur Hydra : {e}")
-
-if __name__ == "__main__":
-    if len(sys.argv) != 3: sys.exit(1)
-    run_hydra(sys.argv[1], sys.argv[2])
+encrypt_file(html_path)

@@ -1,31 +1,83 @@
 <!DOCTYPE html>
-<html>
+<html lang="fr">
 <head>
-    <title>Pentest Toolkit</title>
-    <style>
-        body { font-family: Arial, sans-serif; padding: 20px; }
-        h1 { color: #444; }
-        form { margin-top: 20px; }
-        input[type="text"] { width: 300px; padding: 8px; }
-        .tool-list { margin-top: 10px; }
-        .tool-list label { display: block; margin: 5px 0; }
-        button { padding: 10px 15px; background-color: #007BFF; color: white; border: none; }
-    </style>
+    <meta charset="UTF-8">
+    <title>Boîte à Outils Pentest</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+    <script>
+        function updateStatus(msg) {
+            const output = document.getElementById("status");
+            output.innerHTML += msg + "<br>";
+        }
+
+        async function lancerOutils(event) {
+            event.preventDefault();
+
+            const form = event.target;
+            const formData = new FormData(form);
+
+            const output = document.getElementById("status");
+            output.innerHTML = "<strong>Début du scan...</strong><br>";
+
+            const response = await fetch("/scan", {
+                method: "POST",
+                body: formData
+            });
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                const text = decoder.decode(value, { stream: true });
+                updateStatus(text);
+            }
+
+            updateStatus("<strong>Scan terminé.</strong>");
+        }
+    </script>
 </head>
 <body>
-    <h1>Pentest Toolkit Interface</h1>
-    <form method="POST">
-        <label for="target">Cible (URL ou IP) :</label>
-        <input type="text" name="target" required>
+    <section class="section">
+        <div class="container">
+            <h1 class="title">Boîte à Outils Pentest</h1>
 
-        <div class="tool-list">
-            <p>Sélectionner les outils :</p>
-            {% for tool in tools %}
-                <label><input type="checkbox" name="tools" value="{{ tool }}"> {{ tool }}</label>
-            {% endfor %}
+            <form onsubmit="lancerOutils(event)">
+                <div class="field">
+                    <label class="label">Cible (IP ou URL)</label>
+                    <div class="control">
+                        <input class="input" type="text" name="target" placeholder="example.com" required>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label class="label">Outils à utiliser</label>
+                    <div class="control">
+                        <label><input type="checkbox" name="tools" value="nmap"> Nmap</label><br>
+                        <label><input type="checkbox" name="tools" value="nikto"> Nikto</label><br>
+                        <label><input type="checkbox" name="tools" value="hydra"> Hydra</label><br>
+                        <label><input type="checkbox" name="tools" value="sqlmap"> SQLmap</label><br>
+                        <label><input type="checkbox" name="tools" value="gobuster"> Gobuster</label><br>
+                        <label><input type="checkbox" name="tools" value="feroxbuster"> Feroxbuster</label><br>
+                        <label><input type="checkbox" name="tools" value="https_test"> Test HTTPS</label><br>
+                        <label><input type="checkbox" name="tools" value="wireshark_simule"> Wireshark (simulé)</label><br>
+                    </div>
+                </div>
+
+                <div class="control">
+                    <button class="button is-primary" type="submit">Lancer le scan</button>
+                </div>
+            </form>
+
+            <hr>
+            <h2 class="subtitle">État d'avancement :</h2>
+            <div id="status" style="white-space: pre-wrap; background-color: #f4f4f4; padding: 1rem; border-radius: 5px;"></div>
+
+            <hr>
+            <a class="button is-link" href="/changepass">Changer le mot de passe AES</a>
+            <a class="button is-info" href="/rapports">Voir les rapports</a>
         </div>
-
-        <button type="submit">Lancer le scan</button>
-    </form>
+    </section>
 </body>
 </html>

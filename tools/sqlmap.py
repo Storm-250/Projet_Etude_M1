@@ -1,16 +1,23 @@
-import subprocess, sys, os
+import sys
+import subprocess
+from datetime import datetime
+from encrypt import encrypt_file
 
-def run_sqlmap(target, timestamp):
-    output_file = f"reports/sqlmap_{timestamp}.txt"
-    try:
-        with open(output_file, "w") as f:
-            subprocess.run([
-                "python3", "/opt/sqlmap/sqlmap.py", "-u", target, "--batch"
-            ], stdout=f, stderr=subprocess.STDOUT)
-    except Exception as e:
-        with open(output_file, "w") as f:
-            f.write(f"Erreur SQLmap : {e}")
+if len(sys.argv) < 2:
+    print("Usage: sqlmap.py <target>")
+    sys.exit(1)
 
-if __name__ == "__main__":
-    if len(sys.argv) != 3: sys.exit(1)
-    run_sqlmap(sys.argv[1], sys.argv[2])
+target = sys.argv[1]
+date = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+html_path = f"rapport/sqlmap_{date}.html"
+
+# Exemple simple : test GET sur la page cible
+sqlmap_cmd = ["sqlmap", "-u", f"http://{target}", "--batch", "--crawl=1"]
+sqlmap_result = subprocess.run(sqlmap_cmd, capture_output=True, text=True).stdout
+
+with open(html_path, "w") as f:
+    f.write("<h1>Résultat SQLMap</h1><pre>")
+    f.write(sqlmap_result)
+    f.write("</pre>")
+
+encrypt_file(html_path)

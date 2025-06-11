@@ -1,33 +1,22 @@
-import subprocess, sys, os
-import zipfile
+import sys
+import subprocess
+from datetime import datetime
+from encrypt import encrypt_file
 
-def extract_pass_file():
-    zip_path = os.path.join('tools', 'pass.zip')       # chemin du ZIP
-    extract_path = os.path.join('tools', 'pass.txt')       # chemin du fichier extrait
+if len(sys.argv) < 2:
+    print("Usage: feroxbuster.py <target>")
+    sys.exit(1)
 
-    if not os.path.exists(extract_path):
-        try:
-            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                zip_ref.extractall('tools')                # extrait dans le même dossier
-                print("✅ 'pass.txt' extrait avec succès.")
-        except zipfile.BadZipFile:
-            print("❌ Erreur : Le fichier ZIP est corrompu ou invalide.")
-    else:
-        print("ℹ️ 'pass.txt' déjà présent, extraction non nécessaire.")
+target = sys.argv[1]
+date = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+html_path = f"rapport/feroxbuster_{date}.html"
 
-extract_pass_file()
+cmd = ["feroxbuster", "-u", f"http://{target}", "-w", "/usr/share/seclists/Discovery/Web-Content/common.txt"]
+ferox_result = subprocess.run(cmd, capture_output=True, text=True).stdout
 
-def run_ferox(target, timestamp):
-    output_file = f"reports/feroxbuster_{timestamp}.txt"
-    try:
-        with open(output_file, "w") as f:
-            subprocess.run([
-                "feroxbuster", "-u", target, "-w", "pass.txt"
-            ], stdout=f, stderr=subprocess.STDOUT)
-    except Exception as e:
-        with open(output_file, "w") as f:
-            f.write(f"Erreur Feroxbuster : {e}")
+with open(html_path, "w") as f:
+    f.write("<h1>Résultat Feroxbuster</h1><pre>")
+    f.write(ferox_result)
+    f.write("</pre>")
 
-if __name__ == "__main__":
-    if len(sys.argv) != 3: sys.exit(1)
-    run_ferox(sys.argv[1], sys.argv[2])
+encrypt_file(html_path)

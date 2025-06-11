@@ -1,10 +1,12 @@
-import sys, os
+from datetime import datetime
+from encrypt import encrypt_file
 
-def simulate_wireshark(timestamp):
-    output_file = f"reports/wireshark_{timestamp}.txt"
-    with open(output_file, "w") as f:
-        f.write("Wireshark simulation : capture réseau non disponible dans Docker\n")
+date = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+file_path = f"rapport/wireshark_{date}.html"
 
-if __name__ == "__main__":
-    if len(sys.argv) != 3: sys.exit(1)
-    simulate_wireshark(sys.argv[2])
+fake_report = "<html><body><h1>Wireshark Simulation</h1><p>Simulated network traffic report.</p></body></html>"
+
+with open(file_path, "w") as f:
+    f.write(fake_report)
+
+encrypt_file(file_path)

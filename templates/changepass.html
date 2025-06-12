@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Changer le mot de passe - Boîte à Outils Pentest</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            background-color: #f5f5f5;
+        }
+        .container { 
+            padding: 20px; 
+            max-width: 600px; 
+            margin: 0 auto;
+        }
+        .password-form {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-top: 2rem;
+        }
+        .field {
+            margin-bottom: 1.5rem;
+        }
+        .input {
+            border-radius: 8px;
+        }
+        .button {
+            border-radius: 8px;
+        }
+        .security-tips {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+        }
+        .security-tips h4 {
+            color: #495057;
+            margin-bottom: 1rem;
+        }
+        .security-tips ul {
+            color: #6c757d;
+            margin-left: 1rem;
+        }
+        .security-tips li {
+            margin-bottom: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- En-tête -->
+        <div class="level mb-5">
+            <div class="level-left">
+                <div class="level-item">
+                    <h1 class="title is-3">
+                        <i class="fas fa-key has-text-warning"></i>
+                        Changer le mot de passe
+                    </h1>
+                </div>
+            </div>
+            <div class="level-right">
+                <div class="level-item">
+                    <a href="{{ url_for('index') }}" class="button is-primary">
+                        <span class="icon">
+                            <i class="fas fa-arrow-left"></i>
+                        </span>
+                        <span>Retour à l'accueil</span>
+                    </a>
+                </div>
+                <div class="level-item">
+                    <a href="{{ url_for('logout') }}" class="button is-light">
+                        <span class="icon">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </span>
+                        <span>Déconnexion</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Messages flash -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="notification is-{{ 'danger' if category == 'error' else 'success' if category == 'success' else 'info' }}">
+                        <button class="delete" onclick="this.parentElement.style.display='none'"></button>
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Formulaire de changement de mot de passe -->
+        <div class="password-form">
+            <h2 class="subtitle is-4">
+                <i class="fas fa-shield-alt has-text-info"></i>
+                Modification du mot de passe AES
+            </h2>
+            <p class="has-text-grey">
+                Ce mot de passe est utilisé pour chiffrer les rapports et pour l'accès à l'application.
+            </p>
+
+            <form method="POST" id="password-form">
+                <div class="field">
+                    <label class="label">Ancien mot de passe</label>
+                    <div class="control has-icons-left">
+                        <input class="input" type="password" name="ancien" placeholder="Votre mot de passe actuel" required>
+                        <span class="icon is-small is-left">
+                            <i class="fas fa-lock"></i>
+                        </span>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label class="label">Nouveau mot de passe</label>
+                    <div class="control has-icons-left">
+                        <input class="input" type="password" name="nouveau" id="nouveau" placeholder="Nouveau mot de passe" required>
+                        <span class="icon is-small is-left">
+                            <i class="fas fa-key"></i>
+                        </span>
+                    </div>
+                    <p class="help">Minimum 8 caractères recommandés</p>
+                </div>
+
+                <div class="field">
+                    <label class="label">Confirmer le nouveau mot de passe</label>
+                    <div class="control has-icons-left">
+                        <input class="input" type="password" name="confirm" id="confirm" placeholder="Confirmez le nouveau mot de passe" required>
+                        <span class="icon is-small is-left">
+                            <i class="fas fa-check"></i>
+                        </span>
+                    </div>
+                    <p class="help" id="password-match"></p>
+                </div>
+
+                <div class="field">
+                    <div class="control">
+                        <button class="button is-warning is-fullwidth" type="submit">
+                            <span class="icon">
+                                <i class="fas fa-save"></i>
+                            </span>
+                            <span>Changer le mot de passe</span>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Conseils de sécurité -->
+        <div class="security-tips">
+            <h4 class="title is-5">
+                <i class="fas fa-info-circle has-text-info"></i>
+                Conseils de sécurité
+            </h4>
+            <ul>
+                <li><strong>Utilisez un mot de passe fort</strong> : Au moins 8 caractères avec lettres, chiffres et symboles</li>
+                <li><strong>Ne partagez jamais</strong> ce mot de passe avec des tiers</li>
+                <li><strong>Changez-le régulièrement</strong> pour maintenir la sécurité</li>
+                <li><strong>Sauvegardez-le</strong> dans un gestionnaire de mots de passe sécurisé</li>
+                <li><strong>Attention</strong> : Changer ce mot de passe re-chiffre tous les rapports existants</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Vérification de correspondance des mots de passe
+        function checkPasswordMatch() {
+            const nouveau = document.getElementById('nouveau').value;
+            const confirm = document.getElementById('confirm').value;
+            const helpText = document.getElementById('password-match');
+            
+            if (confirm === '') {
+                helpText.textContent = '';
+                helpText.className = 'help';
+                return;
+            }
+            
+            if (nouveau === confirm) {
+                helpText.textContent = '✓ Les mots de passe correspondent';
+                helpText.className = 'help has-text-success';
+            } else {
+                helpText.textContent = '✗ Les mots de passe ne correspondent pas';
+                helpText.className = 'help has-text-danger';
+            }
+        }
+
+        document.getElementById('nouveau').addEventListener('input', checkPasswordMatch);
+        document.getElementById('confirm').addEventListener('input', checkPasswordMatch);
+
+        // Gestion du formulaire
+        document.getElementById('password-form').addEventListener('submit', function(e) {
+            const nouveau = document.getElementById('nouveau').value;
+            const confirm = document.getElementById('confirm').value;
+            
+            if (nouveau !== confirm) {
+                e.preventDefault();
+                alert('Les mots de passe ne correspondent pas !');
+                return;
+            }
+            
+            if (nouveau.length < 4) {
+                e.preventDefault();
+                alert('Le mot de passe doit contenir au moins 4 caractères !');
+                return;
+            }
+            
+            const button = this.querySelector('button[type="submit"]');
+            const originalText = button.innerHTML;
+            
+            button.innerHTML = '<span class="icon"><i class="fas fa-spinner fa-spin"></i></span><span>Changement en cours...</span>';
+            button.disabled = true;
+            
+            // Note: Le bouton sera réactivé lors du rechargement de la page
+        });
+    </script>
+</body>
+</html>

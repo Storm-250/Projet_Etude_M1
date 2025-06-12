@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion - Boîte à Outils Pentest</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+            width: 100%;
+            max-width: 400px;
+        }
+        .login-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .login-header .icon {
+            font-size: 3rem;
+            color: #667eea;
+            margin-bottom: 1rem;
+        }
+        .login-header h1 {
+            color: #363636;
+            font-weight: 600;
+        }
+        .login-header p {
+            color: #7a7a7a;
+            margin-top: 0.5rem;
+        }
+        .field {
+            margin-bottom: 1.5rem;
+        }
+        .input {
+            border-radius: 8px;
+            border: 2px solid #e1e1e1;
+            padding: 12px 16px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+        .input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.125em rgba(102, 126, 234, 0.25);
+        }
+        .button.is-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 8px;
+            padding: 12px;
+            font-weight: 600;
+            font-size: 16px;
+            width: 100%;
+            transition: transform 0.2s ease;
+        }
+        .button.is-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+        .notification {
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+        .security-note {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 1rem;
+            margin-top: 1.5rem;
+            border-radius: 0 8px 8px 0;
+        }
+        .security-note .icon {
+            color: #667eea;
+            margin-right: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <div class="icon">
+                <i class="fas fa-shield-alt"></i>
+            </div>
+            <h1 class="title is-4">Accès Sécurisé</h1>
+            <p class="subtitle is-6">Boîte à Outils Pentest</p>
+        </div>
+
+        <!-- Messages flash -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="notification is-{{ 'danger' if category == 'error' else 'success' if category == 'success' else 'info' }}">
+                        <button class="delete" onclick="this.parentElement.style.display='none'"></button>
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST">
+            <div class="field">
+                <label class="label">Mot de passe</label>
+                <div class="control has-icons-left">
+                    <input class="input" type="password" name="password" placeholder="Entrez votre mot de passe" required autofocus>
+                    <span class="icon is-small is-left">
+                        <i class="fas fa-lock"></i>
+                    </span>
+                </div>
+            </div>
+
+            <div class="field">
+                <div class="control">
+                    <button class="button is-primary" type="submit">
+                        <span class="icon">
+                            <i class="fas fa-sign-in-alt"></i>
+                        </span>
+                        <span>Se connecter</span>
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <div class="security-note">
+            <p class="is-size-7">
+                <span class="icon">
+                    <i class="fas fa-info-circle"></i>
+                </span>
+                <strong>Sécurité :</strong> Utilisez le mot de passe configuré dans MDP.json pour accéder aux outils de pentest.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Auto-focus sur le champ mot de passe
+        document.addEventListener('DOMContentLoaded', function() {
+            const passwordInput = document.querySelector('input[name="password"]');
+            if (passwordInput) {
+                passwordInput.focus();
+            }
+        });
+
+        // Gestion du formulaire
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const button = this.querySelector('button[type="submit"]');
+            const originalText = button.innerHTML;
+            
+            button.innerHTML = '<span class="icon"><i class="fas fa-spinner fa-spin"></i></span><span>Connexion...</span>';
+            button.disabled = true;
+            
+            // Remettre le bouton en état après 3 secondes si pas de redirection
+            setTimeout(() => {
+                button.innerHTML = originalText;
+                button.disabled = false;
+            }, 3000);
+        });
+    </script>
+</body>
+</html>

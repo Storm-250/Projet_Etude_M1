@@ -1,7 +1,9 @@
-from flask import Flask, render_template, request, Response, send_file, redirect
+from flask import Flask, render_template, request, Response, send_file, redirect, url_for
 import subprocess
 import os
 import json
+import re
+from datetime import datetime
 from encrypt import decrypt_file, change_password
 from pathlib import Path
 from werkzeug.utils import secure_filename
@@ -10,6 +12,69 @@ app = Flask(__name__)
 
 TOOLS_FOLDER = "tools"
 RAPPORT_FOLDER = "rapport"
+
+# Fonctions helper pour les templates
+def get_tool_name(filename):
+    return filename.split('_')[0].capitalize()
+
+def get_tool_icon(filename):
+    icons = {
+        'nmap': 'network-wired',
+        'nikto': 'bug',
+        'hydra': 'key',
+        'sqlmap': 'database',
+        'gobuster': 'folder',
+        'feroxbuster': 'folder-open',
+        'https_test': 'lock',
+        'wireshark': 'chart-line'
+    }
+    tool = filename.split('_')[0]
+    return icons.get(tool, 'file-alt')
+
+def get_tool_color(filename):
+    colors = {
+        'nmap': 'primary',
+        'nikto': 'danger',
+        'hydra': 'warning',
+        'sqlmap': 'info',
+        'gobuster': 'success',
+        'feroxbuster': 'link',
+        'https_test': 'dark',
+        'wireshark': 'light'
+    }
+    tool = filename.split('_')[0]
+    return colors.get(tool, 'light')
+
+def format_date(filename):
+    match = re.search(r'(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})', filename)
+    if match:
+        date_str, time_str = match.groups()
+        dt = datetime.strptime(f"{date_str} {time_str.replace('-', ':')}", "%Y-%m-%d %H:%M:%S")
+        return dt.strftime("%d/%m/%Y à %H:%M")
+    return "Date inconnue"
+
+def get_tool_display_name(filename):
+    names = {
+        'nmap': 'Nmap',
+        'nikto': 'Nikto',
+        'hydra': 'Hydra',
+        'sqlmap': 'SQLMap',
+        'gobuster': 'Gobuster',
+        'feroxbuster': 'Feroxbuster',
+        'https_test': 'Test HTTPS',
+        'wireshark': 'Wireshark'
+    }
+    tool = filename.split('_')[0]
+    return names.get(tool, tool.capitalize())
+
+# Ajouter les fonctions au contexte Jinja2
+app.jinja_env.globals.update(
+    get_tool_name=get_tool_name,
+    get_tool_icon=get_tool_icon,
+    get_tool_color=get_tool_color,
+    get_tool_display_name=get_tool_display_name,
+    format_date=format_date
+)
 
 @app.route("/")
 def index():

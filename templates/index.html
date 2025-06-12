@@ -70,13 +70,21 @@
                 </div>
             </form>
 
-            <hr>
-            <h2 class="subtitle">État d'avancement :</h2>
-            <div id="status" style="white-space: pre-wrap; background-color: #f4f4f4; padding: 1rem; border-radius: 5px;"></div>
-
-            <hr>
-            <a class="button is-link" href="/changepass">Changer le mot de passe AES</a>
-            <a class="button is-info" href="/rapports">Voir les rapports</a>
+             <hr>
+            <div class="buttons">
+                <a class="button is-link" href="/changepass">
+                    <span class="icon"><i class="fas fa-key"></i></span>
+                    <span>Changer le mot de passe AES</span>
+                </a>
+                <a class="button is-info" href="/rapports">
+                    <span class="icon"><i class="fas fa-file-alt"></i></span>
+                    <span>Voir les rapports</span>
+                </a>
+                <a class="button is-light" href="/logout">
+                    <span class="icon"><i class="fas fa-sign-out-alt"></i></span>
+                    <span>Déconnexion</span>
+                </a>
+            </div>
         </div>
     </section>
 </body>

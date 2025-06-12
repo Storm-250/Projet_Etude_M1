@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rapports de scan</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            background-color: #f5f5f5;
+        }
+        .container { 
+            padding: 20px; 
+            max-width: 1200px; 
+        }
+        .rapport-item { 
+            margin: 10px 0; 
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: transform 0.2s ease;
+        }
+        .rapport-item:hover { 
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        .rapport-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .rapport-details {
+            flex-grow: 1;
+        }
+        .rapport-title {
+            font-weight: bold;
+            color: #333;
+            font-size: 1.1em;
+            margin-bottom: 5px;
+        }
+        .rapport-meta {
+            color: #666;
+            font-size: 0.9em;
+        }
+        .tool-badge {
+            display: inline-block;
+            background: #3273dc;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            margin-right: 8px;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+        .search-box {
+            margin-bottom: 20px;
+        }
+        .stats-info {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- En-tête -->
+        <div class="level mb-5">
+            <div class="level-left">
+                <div class="level-item">
+                    <h1 class="title is-3">
+                        <i class="fas fa-file-alt has-text-primary"></i>
+                        Rapports générés
+                    </h1>
+                </div>
+            </div>
+            <div class="level-right">
+                <div class="level-item">
+                    <a href="{{ url_for('index') }}" class="button is-primary">
+                        <span class="icon">
+                            <i class="fas fa-arrow-left"></i>
+                        </span>
+                        <span>Retour à l'accueil</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        {% if fichiers %}
+            <!-- Statistiques simples -->
+            <div class="stats-info">
+                <div class="columns">
+                    <div class="column">
+                        <div class="has-text-centered">
+                            <p class="heading">Total des rapports</p>
+                            <p class="title is-4 has-text-primary">{{ fichiers|length }}</p>
+                        </div>
+                    </div>
+                    <div class="column">
+                        <div class="has-text-centered">
+                            <p class="heading">Dernier scan</p>
+                            <p class="subtitle is-6">{{ format_date(fichiers[0]) if fichiers else 'Aucun' }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Barre de recherche -->
+            <div class="search-box">
+                <div class="field">
+                    <div class="control has-icons-left">
+                        <input class="input" type="text" id="search-input" placeholder="Rechercher un rapport..." onkeyup="filterReports()">
+                        <span class="icon is-left">
+                            <i class="fas fa-search"></i>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Liste des rapports -->
+            <div id="rapports-list">
+                {% for fichier in fichiers %}
+                <div class="rapport-item" data-filename="{{ fichier }}">
+                    <div class="rapport-info">
+                        <div class="rapport-details">
+                            <div class="rapport-title">
+                                <i class="fas fa-{{ get_tool_icon(fichier) }} has-text-{{ get_tool_color(fichier) }}"></i>
+                                {{ get_tool_display_name(fichier) }} - {{ format_date(fichier) }}
+                            </div>
+                            <div class="rapport-meta">
+                                <span class="tool-badge">{{ get_tool_display_name(fichier) }}</span>
+                                <i class="fas fa-lock"></i> Rapport chiffré
+                                <span style="margin-left: 15px;">
+                                    <i class="fas fa-file"></i> {{ fichier }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="rapport-actions">
+                            <a href="{{ url_for('lire_rapport', nom=fichier) }}" class="button is-primary is-small" target="_blank">
+                                <span class="icon">
+                                    <i class="fas fa-eye"></i>
+                                </span>
+                                <span>Ouvrir</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Message si aucun résultat après filtrage -->
+            <div id="no-results" class="empty-state is-hidden">
+                <i class="fas fa-search fa-2x has-text-grey-light"></i>
+                <h3 class="title is-5 has-text-grey">Aucun rapport trouvé</h3>
+                <p class="has-text-grey">Essayez un autre terme de recherche.</p>
+            </div>
+
+        {% else %}
+            <!-- État vide -->
+            <div class="empty-state">
+                <i class="fas fa-folder-open fa-3x has-text-grey-light"></i>
+                <h3 class="title is-4 has-text-grey">Aucun rapport disponible</h3>
+                <p class="subtitle has-text-grey">
+                    Lancez votre premier scan depuis la page d'accueil pour générer des rapports.
+                </p>
+                <a href="{{ url_for('index') }}" class="button is-primary is-medium">
+                    <span class="icon">
+                        <i class="fas fa-play"></i>
+                    </span>
+                    <span>Commencer un scan</span>
+                </a>
+            </div>
+        {% endif %}
+    </div>
+
+    <script>
+        function filterReports() {
+            const searchTerm = document.getElementById('search-input').value.toLowerCase();
+            const items = document.querySelectorAll('.rapport-item');
+            const noResults = document.getElementById('no-results');
+            let visibleCount = 0;
+            
+            items.forEach(item => {
+                const filename = item.dataset.filename.toLowerCase();
+                const shouldShow = filename.includes(searchTerm) || searchTerm === '';
+                
+                if (shouldShow) {
+                    item.style.display = 'block';
+                    visibleCount++;
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+            
+            // Afficher/masquer le message "aucun résultat"
+            if (visibleCount === 0 && searchTerm !== '') {
+                noResults.classList.remove('is-hidden');
+            } else {
+                noResults.classList.add('is-hidden');
+            }
+        }
+    </script>
+</body>
+</html>

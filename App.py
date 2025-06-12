@@ -1,14 +1,15 @@
-from flask import Flask, render_template, request, Response, send_file, redirect, url_for
+from flask import Flask, render_template, request, Response, send_file, redirect, url_for, session, flash
 import subprocess
 import os
 import json
 import re
 from datetime import datetime
-from encrypt import decrypt_file, change_password
+from encrypt import decrypt_file, change_password, load_password
 from pathlib import Path
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
+app.secret_key = os.urandom(24)  # Clé secrète pour les sessions
 
 TOOLS_FOLDER = "tools"
 RAPPORT_FOLDER = "rapport"
@@ -67,6 +68,15 @@ def get_tool_display_name(filename):
     tool = filename.split('_')[0]
     return names.get(tool, tool.capitalize())
 
+def require_auth(f):
+    """Décorateur pour vérifier l'authentification"""
+    def decorated_function(*args, **kwargs):
+        if not session.get('authenticated'):
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    decorated_function.__name__ = f.__name__
+    return decorated_function
+
 # Ajouter les fonctions au contexte Jinja2
 app.jinja_env.globals.update(
     get_tool_name=get_tool_name,
@@ -76,11 +86,37 @@ app.jinja_env.globals.update(
     format_date=format_date
 )
 
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        password = request.form.get("password")
+        try:
+            # Récupérer le mot de passe depuis MDP.json
+            stored_password = load_password()
+            if password == stored_password:
+                session['authenticated'] = True
+                flash("Connexion réussie !", "success")
+                return redirect(url_for('index'))
+            else:
+                flash("Mot de passe incorrect.", "error")
+        except Exception as e:
+            flash(f"Erreur lors de la vérification : {e}", "error")
+    
+    return render_template("login.html")
+
+@app.route("/logout")
+def logout():
+    session.pop('authenticated', None)
+    flash("Vous avez été déconnecté.", "info")
+    return redirect(url_for('login'))
+
 @app.route("/")
+@require_auth
 def index():
     return render_template("index.html")
 
 @app.route("/scan", methods=["POST"])
+@require_auth
 def scan():
     target = request.form.get("target")
     selected_tools = request.form.getlist("tools")
@@ -106,11 +142,13 @@ def scan():
     return Response(generate(), mimetype='text/plain')
 
 @app.route("/rapports")
+@require_auth
 def list_rapports():
     fichiers = sorted(Path(RAPPORT_FOLDER).glob("*.html.aes"), reverse=True)
     return render_template("rapports.html", fichiers=[f.name for f in fichiers])
 
 @app.route("/rapport/<nom>")
+@require_auth
 def lire_rapport(nom):
     chemin_chiffré = os.path.join(RAPPORT_FOLDER, secure_filename(nom))
     chemin_dechiffre = chemin_chiffré.replace(".aes", "")
@@ -125,6 +163,7 @@ def lire_rapport(nom):
             os.remove(chemin_dechiffre)
 
 @app.route("/changepass", methods=["GET", "POST"])
+@require_auth
 def changer_mdp():
     if request.method == "POST":
         ancien = request.form.get("ancien")
@@ -132,23 +171,17 @@ def changer_mdp():
         confirm = request.form.get("confirm")
 
         if nouveau != confirm:
-            return "Nouveau mot de passe et confirmation ne correspondent pas."
+            flash("Nouveau mot de passe et confirmation ne correspondent pas.", "error")
+            return render_template("changepass.html")
 
         try:
             change_password(ancien, nouveau)
-            return redirect("/")
+            flash("Mot de passe changé avec succès !", "success")
+            return redirect(url_for('index'))
         except Exception as e:
-            return f"Erreur : {e}"
+            flash(f"Erreur : {e}", "error")
 
-    return '''
-    <h2>Changer le mot de passe AES</h2>
-    <form method="post">
-        Ancien mot de passe : <input type="password" name="ancien"><br><br>
-        Nouveau mot de passe : <input type="password" name="nouveau"><br><br>
-        Confirmer : <input type="password" name="confirm"><br><br>
-        <button type="submit">Changer</button>
-    </form>
-    '''
+    return render_template("changepass.html")
 
 if __name__ == "__main__":
     os.makedirs(RAPPORT_FOLDER, exist_ok=True)

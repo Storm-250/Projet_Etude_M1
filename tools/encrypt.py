@@ -115,10 +115,10 @@ def change_password(old_pass, new_pass):
     if old_pass != current_password:
         raise Exception("Ancien mot de passe incorrect")
     
-    # Créer le dossier rapport s'il n'existe pas
-    rapport_dir = "rapport"
-    if not os.path.exists(rapport_dir):
-        os.makedirs(rapport_dir)
+    # Créer le dossier rapports s'il n'existe pas
+    rapports_dir = "rapports"
+    if not os.path.exists(rapports_dir):
+        os.makedirs(rapports_dir)
         return  # Pas de fichiers à rechiffrer
     
     salt = load_salt()
@@ -126,9 +126,9 @@ def change_password(old_pass, new_pass):
     key_new = get_key(new_pass, salt)
 
     # Rechiffrer tous les fichiers .aes
-    for file in os.listdir(rapport_dir):
+    for file in os.listdir(rapports_dir):
         if file.endswith(".aes"):
-            path = os.path.join(rapport_dir, file)
+            path = os.path.join(rapports_dir, file)
             try:
                 # Déchiffrer avec l'ancien mot de passe
                 with open(path, "rb") as f:

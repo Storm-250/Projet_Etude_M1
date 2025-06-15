@@ -8,4 +8,17 @@ services:
       - "5000:5000"
     volumes:
       - ./reports:/app/reports
+      - ./rapport:/app/rapport
+      - ./MDP.json:/app/MDP.json
+      - ./salt.bin:/app/salt.bin
+    environment:
+      - PYTHONPATH=/app
+      - FLASK_ENV=development
     restart: unless-stopped
+    # Retiré network_mode: host qui peut causer des problèmes
+    networks:
+      - pentest-network
+
+networks:
+  pentest-network:
+    driver: bridge

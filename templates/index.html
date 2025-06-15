@@ -2,90 +2,394 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Boîte à Outils Pentest</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
-    <script>
-        function updateStatus(msg) {
-            const output = document.getElementById("status");
-            output.innerHTML += msg + "<br>";
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            background-color: #f5f5f5;
         }
-
-        async function lancerOutils(event) {
-            event.preventDefault();
-
-            const form = event.target;
-            const formData = new FormData(form);
-
-            const output = document.getElementById("status");
-            output.innerHTML = "<strong>Début du scan...</strong><br>";
-
-            const response = await fetch("/scan", {
-                method: "POST",
-                body: formData
-            });
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-
-            while (true) {
-                const { value, done } = await reader.read();
-                if (done) break;
-                const text = decoder.decode(value, { stream: true });
-                updateStatus(text);
-            }
-
-            updateStatus("<strong>Scan terminé.</strong>");
+        .container { 
+            padding: 20px; 
+            max-width: 1000px; 
         }
-    </script>
+        .scan-form {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+        .tool-checkbox {
+            margin: 0.5rem 0;
+            padding: 0.5rem;
+            background: #f8f9fa;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+        }
+        .tool-checkbox:hover {
+            background: #e9ecef;
+        }
+        .status-output {
+            background: #000;
+            color: #0f0;
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: monospace;
+            min-height: 200px;
+            white-space: pre-wrap;
+            overflow-y: auto;
+            max-height: 400px;
+            margin-top: 1rem;
+        }
+        .scan-progress {
+            display: none;
+            margin-top: 1rem;
+        }
+        .tool-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+        .tool-card {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .tool-card:hover {
+            border-color: #3273dc;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .tool-card.selected {
+            border-color: #3273dc;
+            background: #f0f7ff;
+        }
+        .tool-card .icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+    </style>
 </head>
 <body>
-    <section class="section">
-        <div class="container">
-            <h1 class="title">Boîte à Outils Pentest</h1>
+    <div class="container">
+        <!-- En-tête -->
+        <div class="level mb-5">
+            <div class="level-left">
+                <div class="level-item">
+                    <h1 class="title is-2">
+                        <i class="fas fa-tools has-text-primary"></i>
+                        Boîte à Outils Pentest
+                    </h1>
+                </div>
+            </div>
+            <div class="level-right">
+                <div class="level-item">
+                    <a href="/changepass" class="button is-warning">
+                        <span class="icon"><i class="fas fa-key"></i></span>
+                        <span>Changer MDP</span>
+                    </a>
+                </div>
+                <div class="level-item">
+                    <a href="/rapports" class="button is-info">
+                        <span class="icon"><i class="fas fa-file-alt"></i></span>
+                        <span>Rapports</span>
+                    </a>
+                </div>
+                <div class="level-item">
+                    <a href="/logout" class="button is-light">
+                        <span class="icon"><i class="fas fa-sign-out-alt"></i></span>
+                        <span>Déconnexion</span>
+                    </a>
+                </div>
+            </div>
+        </div>
 
-            <form onsubmit="lancerOutils(event)">
-                <div class="field">
-                    <label class="label">Cible (IP ou URL)</label>
-                    <div class="control">
-                        <input class="input" type="text" name="target" placeholder="example.com" required>
+        <!-- Messages flash -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="notification is-{{ 'danger' if category == 'error' else 'success' if category == 'success' else 'info' }}">
+                        <button class="delete" onclick="this.parentElement.style.display='none'"></button>
+                        {{ message }}
                     </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Formulaire de scan -->
+        <div class="scan-form">
+            <h2 class="subtitle is-4">
+                <i class="fas fa-crosshairs has-text-danger"></i>
+                Configuration du scan
+            </h2>
+
+            <form id="scan-form">
+                <div class="field">
+                    <label class="label">Cible à scanner</label>
+                    <div class="control has-icons-left">
+                        <input class="input is-large" type="text" name="target" id="target-input" 
+                               placeholder="exemple.com ou 192.168.1.1" required>
+                        <span class="icon is-left">
+                            <i class="fas fa-bullseye"></i>
+                        </span>
+                    </div>
+                    <p class="help">Entrez une adresse IP ou un nom de domaine</p>
                 </div>
 
                 <div class="field">
                     <label class="label">Outils à utiliser</label>
                     <div class="control">
-                        <label><input type="checkbox" name="tools" value="nmap"> Nmap</label><br>
-                        <label><input type="checkbox" name="tools" value="nikto"> Nikto</label><br>
-                        <label><input type="checkbox" name="tools" value="hydra"> Hydra</label><br>
-                        <label><input type="checkbox" name="tools" value="sqlmap"> SQLmap</label><br>
-                        <label><input type="checkbox" name="tools" value="gobuster"> Gobuster</label><br>
-                        <label><input type="checkbox" name="tools" value="feroxbuster"> Feroxbuster</label><br>
-                        <label><input type="checkbox" name="tools" value="https_test"> Test HTTPS</label><br>
-                        <label><input type="checkbox" name="tools" value="wireshark_simule"> Wireshark (simulé)</label><br>
+                        <div class="tool-grid">
+                            <!-- Nmap -->
+                            <div class="tool-card" data-tool="nmap" onclick="toggleTool(this)">
+                                <div class="has-text-centered">
+                                    <div class="icon has-text-primary">
+                                        <i class="fas fa-network-wired"></i>
+                                    </div>
+                                    <p class="title is-6">Nmap</p>
+                                    <p class="subtitle is-7">Scan de ports</p>
+                                </div>
+                            </div>
+                            
+                            <!-- Nikto -->
+                            <div class="tool-card" data-tool="nikto" onclick="toggleTool(this)">
+                                <div class="has-text-centered">
+                                    <div class="icon has-text-danger">
+                                        <i class="fas fa-bug"></i>
+                                    </div>
+                                    <p class="title is-6">Nikto</p>
+                                    <p class="subtitle is-7">Vulnérabilités web</p>
+                                </div>
+                            </div>
+                            
+                            <!-- Hydra -->
+                            <div class="tool-card" data-tool="hydra" onclick="toggleTool(this)">
+                                <div class="has-text-centered">
+                                    <div class="icon has-text-warning">
+                                        <i class="fas fa-key"></i>
+                                    </div>
+                                    <p class="title is-6">Hydra</p>
+                                    <p class="subtitle is-7">Bruteforce</p>
+                                </div>
+                            </div>
+                            
+                            <!-- SQLMap -->
+                            <div class="tool-card" data-tool="sqlmap" onclick="toggleTool(this)">
+                                <div class="has-text-centered">
+                                    <div class="icon has-text-info">
+                                        <i class="fas fa-database"></i>
+                                    </div>
+                                    <p class="title is-6">SQLMap</p>
+                                    <p class="subtitle is-7">Injection SQL</p>
+                                </div>
+                            </div>
+                            
+                            <!-- Gobuster -->
+                            <div class="tool-card" data-tool="gobuster" onclick="toggleTool(this)">
+                                <div class="has-text-centered">
+                                    <div class="icon has-text-success">
+                                        <i class="fas fa-folder"></i>
+                                    </div>
+                                    <p class="title is-6">Gobuster</p>
+                                    <p class="subtitle is-7">Énumération</p>
+                                </div>
+                            </div>
+                            
+                            <!-- Feroxbuster -->
+                            <div class="tool-card" data-tool="feroxbuster" onclick="toggleTool(this)">
+                                <div class="has-text-centered">
+                                    <div class="icon has-text-link">
+                                        <i class="fas fa-folder-open"></i>
+                                    </div>
+                                    <p class="title is-6">Feroxbuster</p>
+                                    <p class="subtitle is-7">Découverte web</p>
+                                </div>
+                            </div>
+                            
+                            <!-- HTTPS Test -->
+                            <div class="tool-card" data-tool="https_test" onclick="toggleTool(this)">
+                                <div class="has-text-centered">
+                                    <div class="icon has-text-dark">
+                                        <i class="fas fa-lock"></i>
+                                    </div>
+                                    <p class="title is-6">Test HTTPS</p>
+                                    <p class="subtitle is-7">Certificats SSL</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
+                    <p class="help">Cliquez sur les outils que vous souhaitez utiliser</p>
                 </div>
 
-                <div class="control">
-                    <button class="button is-primary" type="submit">Lancer le scan</button>
+                <!-- Champs cachés pour les outils sélectionnés -->
+                <div id="selected-tools"></div>
+
+                <div class="field">
+                    <div class="control">
+                        <button class="button is-primary is-large is-fullwidth" type="submit" id="scan-button">
+                            <span class="icon">
+                                <i class="fas fa-play"></i>
+                            </span>
+                            <span>Lancer le scan</span>
+                        </button>
+                    </div>
                 </div>
             </form>
 
-             <hr>
-            <div class="buttons">
-                <a class="button is-link" href="/changepass">
-                    <span class="icon"><i class="fas fa-key"></i></span>
-                    <span>Changer le mot de passe AES</span>
-                </a>
-                <a class="button is-info" href="/rapports">
-                    <span class="icon"><i class="fas fa-file-alt"></i></span>
-                    <span>Voir les rapports</span>
-                </a>
-                <a class="button is-light" href="/logout">
-                    <span class="icon"><i class="fas fa-sign-out-alt"></i></span>
-                    <span>Déconnexion</span>
-                </a>
+            <!-- Barre de progression -->
+            <div class="scan-progress" id="scan-progress">
+                <div class="field">
+                    <label class="label">Progression du scan</label>
+                    <progress class="progress is-primary" id="progress-bar" value="0" max="100">0%</progress>
+                </div>
+            </div>
+
+            <!-- Zone de statut -->
+            <div class="status-output" id="status">
+                Prêt à lancer un scan...
             </div>
         </div>
-    </section>
+    </div>
+
+    <script>
+        let selectedTools = new Set();
+        let isScanning = false;
+
+        function toggleTool(element) {
+            if (isScanning) return;
+            
+            const tool = element.dataset.tool;
+            
+            if (selectedTools.has(tool)) {
+                selectedTools.delete(tool);
+                element.classList.remove('selected');
+            } else {
+                selectedTools.add(tool);
+                element.classList.add('selected');
+            }
+            
+            updateSelectedToolsInputs();
+        }
+
+        function updateSelectedToolsInputs() {
+            const container = document.getElementById('selected-tools');
+            container.innerHTML = '';
+            
+            selectedTools.forEach(tool => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'tools';
+                input.value = tool;
+                container.appendChild(input);
+            });
+        }
+
+        function updateStatus(msg) {
+            const output = document.getElementById("status");
+            output.innerHTML += msg + "\n";
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function setScanning(scanning) {
+            isScanning = scanning;
+            const button = document.getElementById('scan-button');
+            const progress = document.getElementById('scan-progress');
+            const toolCards = document.querySelectorAll('.tool-card');
+            
+            if (scanning) {
+                button.innerHTML = '<span class="icon"><i class="fas fa-spinner fa-spin"></i></span><span>Scan en cours...</span>';
+                button.disabled = true;
+                button.classList.add('is-loading');
+                progress.style.display = 'block';
+                toolCards.forEach(card => card.style.pointerEvents = 'none');
+            } else {
+                button.innerHTML = '<span class="icon"><i class="fas fa-play"></i></span><span>Lancer le scan</span>';
+                button.disabled = false;
+                button.classList.remove('is-loading');
+                progress.style.display = 'none';
+                toolCards.forEach(card => card.style.pointerEvents = 'auto');
+            }
+        }
+
+        async function lancerOutils(event) {
+            event.preventDefault();
+
+            const target = document.getElementById('target-input').value.trim();
+            
+            if (!target) {
+                alert('Veuillez entrer une cible à scanner !');
+                return;
+            }
+            
+            if (selectedTools.size === 0) {
+                alert('Veuillez sélectionner au moins un outil !');
+                return;
+            }
+
+            setScanning(true);
+
+            const output = document.getElementById("status");
+            output.innerHTML = "🚀 Début du scan...\n";
+
+            try {
+                const formData = new FormData();
+                formData.append('target', target);
+                selectedTools.forEach(tool => {
+                    formData.append('tools', tool);
+                });
+
+                console.log('Envoi de la requête avec:', {
+                    target: target,
+                    tools: Array.from(selectedTools)
+                });
+
+                const response = await fetch("/scan", {
+                    method: "POST",
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Erreur HTTP: ${response.status}`);
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    
+                    const text = decoder.decode(value, { stream: true });
+                    updateStatus(text);
+                }
+
+                updateStatus("\n✅ Scan terminé ! Consultez la section 'Rapports' pour voir les résultats.");
+
+            } catch (error) {
+                console.error('Erreur lors du scan:', error);
+                updateStatus(`\n❌ Erreur lors du scan: ${error.message}`);
+            } finally {
+                setScanning(false);
+            }
+        }
+
+        // Attacher l'événement au formulaire
+        document.getElementById('scan-form').addEventListener('submit', lancerOutils);
+
+        // Sélectionner nmap par défaut
+        document.addEventListener('DOMContentLoaded', function() {
+            const nmapCard = document.querySelector('[data-tool="nmap"]');
+            if (nmapCard) {
+                toggleTool(nmapCard);
+            }
+        });
+    </script>
 </body>
 </html>

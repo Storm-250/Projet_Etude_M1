@@ -1,8 +1,86 @@
 import sys
 import subprocess
+import os
+import zipfile
 from datetime import datetime
 from encrypt import encrypt_file
-import os
+
+def extract_pass_zip():
+    """
+    Décompresse automatiquement pass.zip depuis le dossier tools
+    """
+    pass_zip_path = os.path.join("tools", "pass.zip")
+    
+    if os.path.exists(pass_zip_path):
+        print(f"📦 Décompression de {pass_zip_path}...")
+        try:
+            with zipfile.ZipFile(pass_zip_path, 'r') as zip_ref:
+                # Extraire dans le répertoire courant
+                extracted_files = zip_ref.namelist()
+                zip_ref.extractall('.')
+                
+                print(f"✅ Fichiers extraits: {', '.join(extracted_files)}")
+                
+                # Vérifier que les fichiers ont bien été extraits
+                for filename in extracted_files:
+                    if os.path.exists(filename):
+                        size = os.path.getsize(filename)
+                        print(f"   • {filename} ({size} bytes)")
+                    else:
+                        print(f"   ❌ {filename} non extrait")
+                
+                return True
+                
+        except zipfile.BadZipFile:
+            print(f"❌ Fichier zip corrompu: {pass_zip_path}")
+        except Exception as e:
+            print(f"❌ Erreur lors de la décompression: {e}")
+    else:
+        print(f"⚠️ {pass_zip_path} non trouvé")
+    
+    return False
+
+def ensure_wordlist_files():
+    """
+    S'assure que les fichiers de listes de mots de passe existent
+    """
+    # D'abord essayer de décompresser pass.zip
+    extract_pass_zip()
+    
+    # Définir les fichiers par défaut
+    default_users = ["admin", "root", "user", "test", "guest", "administrator"]
+    default_passwords = ["admin", "password", "123456", "root", "test", "guest", ""]
+    
+    # Vérifier/créer users.txt
+    if not os.path.exists("users.txt"):
+        with open("users.txt", "w") as f:
+            f.write("\n".join(default_users))
+        print(f"📝 Fichier users.txt créé avec les utilisateurs par défaut")
+    
+    # Vérifier/créer passwords.txt ou pass.txt
+    password_files = ["passwords.txt", "pass.txt"]
+    password_file_exists = any(os.path.exists(pf) for pf in password_files)
+    
+    if not password_file_exists:
+        with open("passwords.txt", "w") as f:
+            f.write("\n".join(default_passwords))
+        print(f"📝 Fichier passwords.txt créé avec les mots de passe par défaut")
+
+def get_wordlist_files():
+    """
+    Détermine quels fichiers de listes utiliser
+    """
+    users_file = "users.txt"
+    
+    # Priorité à pass.txt puis passwords.txt
+    if os.path.exists("pass.txt"):
+        passwords_file = "pass.txt"
+    elif os.path.exists("passwords.txt"):
+        passwords_file = "passwords.txt"
+    else:
+        passwords_file = "passwords.txt"  # Sera créé par ensure_wordlist_files
+    
+    return users_file, passwords_file
 
 def main():
     if len(sys.argv) < 2:
@@ -24,23 +102,27 @@ def main():
     print(f"🔍 Scan Hydra en cours sur {target}...")
     print(f"📄 Fichier de sortie: {html_path}")
 
-    # Créer des listes par défaut si elles n'existent pas
-    default_users = ["admin", "root", "user", "test", "guest", "administrator"]
-    default_passwords = ["admin", "password", "123456", "root", "test", "guest", ""]
+    # **ÉTAPE CRUCIALE : Décompresser pass.zip automatiquement**
+    ensure_wordlist_files()
     
-    users_file = "users.txt"
-    passwords_file = "passwords.txt"
+    # Déterminer quels fichiers utiliser
+    users_file, passwords_file = get_wordlist_files()
     
-    # Créer les fichiers de listes si ils n'existent pas
+    print(f"📋 Utilisation de {users_file} et {passwords_file}")
+    
+    # Vérifier que les fichiers existent maintenant
     if not os.path.exists(users_file):
-        with open(users_file, "w") as f:
-            f.write("\n".join(default_users))
-        print(f"📝 Fichier {users_file} créé avec les utilisateurs par défaut")
+        print(f"❌ Fichier {users_file} manquant")
+        sys.exit(1)
     
     if not os.path.exists(passwords_file):
-        with open(passwords_file, "w") as f:
-            f.write("\n".join(default_passwords))
-        print(f"📝 Fichier {passwords_file} créé avec les mots de passe par défaut")
+        print(f"❌ Fichier {passwords_file} manquant")
+        sys.exit(1)
+    
+    # Afficher les statistiques des fichiers
+    users_count = len([line for line in open(users_file, 'r') if line.strip()])
+    passwords_count = len([line for line in open(passwords_file, 'r') if line.strip()])
+    print(f"📊 {users_count} utilisateurs, {passwords_count} mots de passe")
 
     # Services à tester
     services_to_test = ["ssh", "ftp", "telnet", "http-get", "https-get"]
@@ -102,6 +184,7 @@ def main():
                 'errors': '',
                 'returncode': -2
             }
+            break
         except Exception as e:
             print(f"   ❌ Erreur: {e}")
             hydra_results[service] = {
@@ -136,6 +219,8 @@ def main():
         .status-warning {{ background-color: #ffc107; color: black; }}
         .status-error {{ background-color: #dc3545; color: white; }}
         .status-timeout {{ background-color: #6c757d; color: white; }}
+        .stats {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin: 20px 0; }}
+        .stat {{ background-color: #f8f9fa; padding: 15px; border-radius: 5px; text-align: center; border-left: 4px solid #007bff; }}
     </style>
 </head>
 <body>
@@ -145,7 +230,23 @@ def main():
             <strong>🎯 Cible:</strong> {target}<br>
             <strong>📅 Date:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}<br>
             <strong>🔧 Outil:</strong> Hydra Password Cracker<br>
-            <strong>📋 Services testés:</strong> {len(services_to_test)}
+            <strong>📋 Services testés:</strong> {len(services_to_test)}<br>
+            <strong>📝 Fichiers utilisés:</strong> {users_file} ({users_count} utilisateurs), {passwords_file} ({passwords_count} mots de passe)
+        </div>
+        
+        <div class="stats">
+            <div class="stat">
+                <h3>{len(services_to_test)}</h3>
+                <p>Services testés</p>
+            </div>
+            <div class="stat">
+                <h3>{users_count}</h3>
+                <p>Utilisateurs</p>
+            </div>
+            <div class="stat">
+                <h3>{passwords_count}</h3>
+                <p>Mots de passe</p>
+            </div>
         </div>""")
 
             # Compter les résultats
@@ -184,18 +285,30 @@ def main():
         <div class="info">
             <h3>💡 Actions Recommandées</h3>
             <ul>
-                <li><strong>Politique de mots de passe:</strong> Imposez des mots de passe complexes</li>
-                <li><strong>Authentification multi-facteurs:</strong> Activez le 2FA sur tous les services</li>
-                <li><strong>Limitation des tentatives:</strong> Configurez des limites de connexion</li>
-                <li><strong>Surveillance:</strong> Monitorez les tentatives de connexion suspectes</li>
-                <li><strong>Comptes par défaut:</strong> Désactivez ou renommez les comptes par défaut</li>
-                <li><strong>Services exposés:</strong> Limitez l'exposition des services non nécessaires</li>
+                <li><strong>Politique de mots de passe:</strong> Imposez des mots de passe complexes (12+ caractères, majuscules, minuscules, chiffres, symboles)</li>
+                <li><strong>Authentification multi-facteurs:</strong> Activez le 2FA sur tous les services critiques</li>
+                <li><strong>Limitation des tentatives:</strong> Configurez fail2ban ou des limites de connexion</li>
+                <li><strong>Surveillance:</strong> Monitorez les tentatives de connexion suspectes dans les logs</li>
+                <li><strong>Comptes par défaut:</strong> Désactivez ou renommez tous les comptes par défaut</li>
+                <li><strong>Services exposés:</strong> Limitez l'exposition des services non nécessaires (firewall, VPN)</li>
+                <li><strong>Mise à jour:</strong> Maintenez les services à jour pour corriger les vulnérabilités</li>
             </ul>
         </div>
         
         <div class="warning">
-            <strong>⚠️ Note importante:</strong> Ce test utilise des listes de mots de passe basiques. 
-            Un attaquant pourrait utiliser des dictionnaires plus complets et des techniques plus avancées.
+            <strong>⚠️ Note importante:</strong> Ce test utilise une liste de mots de passe courante. 
+            Un attaquant réel pourrait utiliser des dictionnaires plus complets (millions d'entrées) et des techniques plus sophistiquées.
+        </div>
+        
+        <div class="info">
+            <h3>🔍 Méthodologie du Test</h3>
+            <ul>
+                <li><strong>Utilisateurs testés:</strong> Comptes communs et administrateurs</li>
+                <li><strong>Mots de passe testés:</strong> Mots de passe faibles et par défaut</li>
+                <li><strong>Services ciblés:</strong> SSH, FTP, Telnet, HTTP/HTTPS</li>
+                <li><strong>Limitation:</strong> 4 threads pour éviter la surcharge du serveur</li>
+                <li><strong>Timeout:</strong> 5 minutes maximum par service</li>
+            </ul>
         </div>
     </div>
 </body>

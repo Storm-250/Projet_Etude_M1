@@ -20,13 +20,16 @@ def main():
     
     # Format de nom correct pour l'interface web
     html_path = os.path.join(rapports_dir, f"nikto_{date}.html")
+    # Fichier temporaire pour la sortie Nikto
+    nikto_output_file = os.path.join(rapports_dir, f"nikto_{date}.txt")
     
     print(f"🔍 Scan Nikto en cours sur {target}...")
     print(f"📄 Fichier de sortie: {html_path}")
 
-    # Exécuter Nikto
+    # Exécuter Nikto avec fichier de sortie
     try:
-        nikto_cmd = ["nikto", "-h", target, "-Format", "txt"]
+        # Option 1: Avec fichier de sortie spécifique
+        nikto_cmd = ["nikto", "-h", target, "-Format", "txt", "-output", nikto_output_file]
         print(f"🚀 Commande: {' '.join(nikto_cmd)}")
         
         nikto_result = subprocess.run(
@@ -36,18 +39,27 @@ def main():
             timeout=600  # 10 minutes max
         )
         
-        nikto_output = nikto_result.stdout
-        nikto_errors = nikto_result.stderr
+        # Lire le fichier de sortie généré par Nikto
+        nikto_output = ""
+        if os.path.exists(nikto_output_file):
+            with open(nikto_output_file, 'r', encoding='utf-8', errors='ignore') as f:
+                nikto_output = f.read()
+            # Nettoyer le fichier temporaire
+            os.remove(nikto_output_file)
+        
+        # Si pas de fichier de sortie, utiliser stdout/stderr
+        if not nikto_output.strip():
+            nikto_output = nikto_result.stdout
+            if not nikto_output.strip() and nikto_result.stderr:
+                nikto_output = f"Erreurs Nikto:\n{nikto_result.stderr}"
         
         if nikto_result.returncode != 0:
             print(f"⚠️ Nikto terminé avec le code {nikto_result.returncode}")
-            if nikto_errors:
-                print(f"Stderr: {nikto_errors}")
+            if nikto_result.stderr:
+                print(f"Stderr: {nikto_result.stderr}")
         
-        # Si pas de sortie, utiliser les erreurs
-        if not nikto_output.strip() and nikto_errors:
-            nikto_output = f"Erreurs Nikto:\n{nikto_errors}"
-        elif not nikto_output.strip():
+        # Si toujours pas de sortie
+        if not nikto_output.strip():
             nikto_output = "Aucun résultat retourné par Nikto"
             
     except subprocess.TimeoutExpired:
@@ -59,6 +71,29 @@ def main():
     except Exception as e:
         print(f"❌ Erreur lors du scan: {e}")
         nikto_output = f"Erreur: {e}"
+
+    # Alternative: Si la première méthode ne fonctionne pas, essayer sans format spécifique
+    if "ERROR: Output file format specified without a name" in nikto_output or not nikto_output.strip():
+        print("🔄 Tentative avec commande simplifiée...")
+        try:
+            # Commande simplifiée sans format spécifique
+            nikto_cmd_simple = ["nikto", "-h", target]
+            print(f"🚀 Commande alternative: {' '.join(nikto_cmd_simple)}")
+            
+            nikto_result = subprocess.run(
+                nikto_cmd_simple, 
+                capture_output=True, 
+                text=True, 
+                timeout=600
+            )
+            
+            nikto_output = nikto_result.stdout
+            if not nikto_output.strip() and nikto_result.stderr:
+                nikto_output = f"Sortie stderr:\n{nikto_result.stderr}"
+            
+        except Exception as e:
+            print(f"❌ Erreur avec commande simplifiée: {e}")
+            nikto_output = f"Erreur: {e}"
 
     # Générer le rapport HTML
     try:
@@ -104,9 +139,14 @@ def main():
                 for line in lines:
                     line = line.strip()
                     if line and not line.startswith('-') and not line.startswith('Nikto'):
-                        if any(keyword in line.lower() for keyword in ['vulnerable', 'security', 'risk', 'exposure', 'exploit']):
+                        # Détecter les vulnérabilités potentielles
+                        if any(keyword in line.lower() for keyword in ['vulnerable', 'security', 'risk', 'exposure', 'exploit', 'cve-', 'osvdb-']):
                             vulnerabilities.append(line)
-                        elif line and len(line) > 10:
+                        # Détecter les informations du serveur
+                        elif any(keyword in line.lower() for keyword in ['server:', 'x-powered-by', 'version', 'apache', 'nginx', 'iis']):
+                            info_items.append(line)
+                        # Autres informations intéressantes
+                        elif line.startswith('+') and len(line) > 10:
                             info_items.append(line)
                 
                 if vulnerabilities:
@@ -116,7 +156,7 @@ def main():
                 
                 if info_items:
                     f.write('<h3>ℹ️ Informations du Serveur</h3>')
-                    for item in info_items[:10]:  # Limiter à 10 items
+                    for item in info_items[:15]:  # Limiter à 15 items
                         f.write(f'<div class="info-item">{item}</div>')
                 
                 f.write('<h3>📄 Sortie Complète</h3>')

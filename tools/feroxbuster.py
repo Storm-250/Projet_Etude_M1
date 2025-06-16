@@ -24,37 +24,25 @@ def main():
     print(f"🔍 Scan Feroxbuster en cours sur {target}...")
     print(f"📄 Fichier de sortie: {html_path}")
 
-    # Wordlists à essayer
-    wordlists = [
-        "/usr/share/seclists/Discovery/Web-Content/common.txt",
-        "/usr/share/wordlists/dirb/common.txt",
-        "/usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt"
-    ]
+    # Utiliser common.txt depuis le répertoire courant
+    selected_wordlist = "common.txt"
+    wordlist_info = ""
     
-    # Trouver une wordlist disponible
-    selected_wordlist = None
-    for wordlist in wordlists:
-        if os.path.exists(wordlist):
-            selected_wordlist = wordlist
-            break
-    
-    if not selected_wordlist:
-        # Créer une wordlist basique
-        selected_wordlist = "ferox_wordlist.txt"
-        basic_paths = [
-            "admin", "administrator", "login", "signin", "panel", "dashboard",
-            "wp-admin", "phpmyadmin", "mysql", "database", "db",
-            "backup", "backups", "bak", "old", "tmp", "temp", "test",
-            "upload", "uploads", "files", "downloads", "assets",
-            "api", "rest", "webservice", "ajax", "json", "xml",
-            "config", "configuration", "settings", "env", ".env",
-            "logs", "log", "debug", "error", "stats", "status",
-            "private", "secret", "hidden", "internal", "dev"
-        ]
-        
-        with open(selected_wordlist, "w") as f:
-            f.write("\n".join(basic_paths))
-        print(f"📝 Wordlist créée: {selected_wordlist}")
+    if os.path.exists(selected_wordlist):
+        # Compter les lignes pour info
+        try:
+            with open(selected_wordlist, 'r') as f:
+                line_count = sum(1 for line in f if line.strip() and not line.startswith('#'))
+            wordlist_info = f"common.txt ({line_count} entrées)"
+            print(f"📋 Wordlist trouvée: {wordlist_info}")
+        except:
+            wordlist_info = "common.txt"
+            print(f"📋 Wordlist trouvée: {wordlist_info}")
+    else:
+        print(f"❌ Fichier common.txt non trouvé dans le répertoire courant")
+        print("📥 Veuillez télécharger common.txt depuis :")
+        print("   https://github.com/danielmiessler/SecLists/raw/master/Discovery/Web-Content/common.txt")
+        sys.exit(1)
 
     # URLs à tester
     base_urls = [f"http://{target}", f"https://{target}"]
@@ -64,18 +52,20 @@ def main():
         print(f"🔍 Test de {base_url}...")
         
         try:
-            # Feroxbuster avec options optimisées
+            # Feroxbuster avec options optimisées pour common.txt
             ferox_cmd = [
                 "feroxbuster",
                 "-u", base_url,
                 "-w", selected_wordlist,
-                "-t", "50",              # 50 threads
-                "-d", "2",               # Profondeur 2
-                "--timeout", "10",       # Timeout 10s
-                "-x", "php,html,txt,js,css,xml,json,bak,old,tmp",  # Extensions
-                "--no-recursion",        # Pas de récursion pour limiter le temps
+                "-t", "100",             # 100 threads (ferox est plus efficace avec plus de threads)
+                "-d", "3",               # Profondeur 3 (bon compromis)
+                "--timeout", "15",       # Timeout 15s
+                "-x", "php,html,txt,js,css,xml,json,bak,old,tmp,asp,aspx,jsp",  # Extensions
+                "-s", "200,204,301,302,307,308,401,403,405,500",  # Status codes intéressants
+                "--auto-tune",           # Auto-tune pour optimiser les performances
                 "-q",                    # Mode silencieux
-                "-k"                     # Ignorer les certificats SSL
+                "-k",                    # Ignorer les certificats SSL
+                "--no-recursion"         # Pas de récursion automatique pour contrôler le scan
             ]
             
             print(f"🚀 Commande: {' '.join(ferox_cmd)}")
@@ -84,7 +74,7 @@ def main():
                 ferox_cmd, 
                 capture_output=True, 
                 text=True, 
-                timeout=400  # 7 minutes max
+                timeout=600  # 10 minutes max pour common.txt
             )
             
             output = ferox_result.stdout
@@ -98,13 +88,24 @@ def main():
                 lines = output.strip().split('\n')
                 for line in lines:
                     # Feroxbuster format: 200 GET 1234c http://example.com/path
-                    if any(code in line for code in ['200', '301', '302', '403', '500']):
+                    # Ou: 200     GET       1234l      567w     8901c http://example.com/path
+                    if any(code in line for code in ['200', '301', '302', '401', '403', '405', '500']):
                         parts = line.split()
-                        if len(parts) >= 4 and parts[3].startswith('http'):
-                            status_code = parts[0]
-                            url = parts[3]
-                            found_urls.append({'url': url, 'status': status_code, 'raw': line})
-                            status_codes[status_code] = status_codes.get(status_code, 0) + 1
+                        if len(parts) >= 4:
+                            # Trouver l'URL (commence par http)
+                            url = None
+                            status_code = None
+                            for i, part in enumerate(parts):
+                                if part.startswith('http'):
+                                    url = part
+                                    # Le code de statut est généralement le premier élément
+                                    if parts[0].isdigit():
+                                        status_code = parts[0]
+                                    break
+                            
+                            if url and status_code:
+                                found_urls.append({'url': url, 'status': status_code, 'raw': line.strip()})
+                                status_codes[status_code] = status_codes.get(status_code, 0) + 1
             
             if ferox_result.returncode == 0:
                 status = f"✅ Terminé ({len(found_urls)} URLs trouvées)"
@@ -121,11 +122,14 @@ def main():
             }
             
             print(f"   {status}")
+            if status_codes:
+                status_summary = ", ".join([f"{code}: {count}" for code, count in sorted(status_codes.items())])
+                print(f"   📊 Codes de statut: {status_summary}")
             
         except subprocess.TimeoutExpired:
             print(f"   ⏰ Timeout pour {base_url}")
             ferox_results[base_url] = {
-                'status': '⏰ Timeout',
+                'status': '⏰ Timeout (> 10 min)',
                 'found_urls': [],
                 'status_codes': {},
                 'output': 'Scan interrompu par timeout',
@@ -174,22 +178,28 @@ def main():
         .warning {{ background-color: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0; border-radius: 0 5px 5px 0; }}
         .error {{ background-color: #f8d7da; color: #721c24; padding: 15px; border-left: 4px solid #dc3545; margin: 20px 0; border-radius: 0 5px 5px 0; }}
         .url-scan {{ background-color: #f8f9fa; padding: 15px; margin: 15px 0; border-radius: 5px; border-left: 4px solid #6c757d; }}
-        .url-result {{ background-color: white; padding: 8px; margin: 5px 0; border-radius: 3px; font-family: monospace; font-size: 12px; display: flex; align-items: center; }}
+        .url-result {{ background-color: white; padding: 10px; margin: 5px 0; border-radius: 3px; font-family: monospace; font-size: 12px; display: flex; align-items: center; }}
         .status-200 {{ border-left: 3px solid #28a745; }}
-        .status-301, .status-302 {{ border-left: 3px solid #17a2b8; }}
+        .status-301, .status-302, .status-307, .status-308 {{ border-left: 3px solid #17a2b8; }}
+        .status-401 {{ border-left: 3px solid #fd7e14; }}
         .status-403 {{ border-left: 3px solid #ffc107; }}
         .status-404 {{ border-left: 3px solid #6c757d; }}
+        .status-405 {{ border-left: 3px solid #e83e8c; }}
         .status-500 {{ border-left: 3px solid #dc3545; }}
-        .status-code {{ padding: 2px 6px; border-radius: 3px; color: white; font-weight: bold; margin-right: 10px; min-width: 30px; text-align: center; }}
+        .status-code {{ padding: 3px 8px; border-radius: 3px; color: white; font-weight: bold; margin-right: 12px; min-width: 35px; text-align: center; }}
         .code-200 {{ background-color: #28a745; }}
-        .code-301, .code-302 {{ background-color: #17a2b8; }}
+        .code-301, .code-302, .code-307, .code-308 {{ background-color: #17a2b8; }}
+        .code-401 {{ background-color: #fd7e14; }}
         .code-403 {{ background-color: #ffc107; color: black; }}
         .code-404 {{ background-color: #6c757d; }}
+        .code-405 {{ background-color: #e83e8c; }}
         .code-500 {{ background-color: #dc3545; }}
         .stats {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin: 20px 0; }}
         .stat {{ background-color: #f8f9fa; padding: 15px; border-radius: 5px; text-align: center; border-left: 4px solid #007bff; }}
         .critical-findings {{ background-color: #f8d7da; padding: 15px; border-left: 4px solid #dc3545; margin: 20px 0; border-radius: 0 5px 5px 0; }}
+        .wordlist-info {{ background-color: #e7f3ff; padding: 10px; border-left: 4px solid #0066cc; margin: 15px 0; border-radius: 0 3px 3px 0; }}
         pre {{ background-color: #2c3e50; color: #ecf0f1; padding: 15px; border-radius: 5px; overflow-x: auto; font-size: 11px; }}
+        .url-text {{ word-break: break-all; }}
     </style>
 </head>
 <body>
@@ -199,8 +209,13 @@ def main():
             <strong>🎯 Cible:</strong> {target}<br>
             <strong>📅 Date:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}<br>
             <strong>🔧 Outil:</strong> Feroxbuster Fast Directory Enumeration<br>
-            <strong>📋 Wordlist:</strong> {os.path.basename(selected_wordlist)}<br>
             <strong>🔍 URLs de base testées:</strong> {len(base_urls)}
+        </div>
+        
+        <div class="wordlist-info">
+            <strong>📋 Wordlist utilisée:</strong> {wordlist_info}<br>
+            <strong>⚡ Stratégie:</strong> Scan rapide et récursif avec common.txt local optimisé pour Feroxbuster<br>
+            <strong>🎯 Profondeur:</strong> 3 niveaux | <strong>🔗 Threads:</strong> 100 | <strong>⏱️ Timeout:</strong> 15s
         </div>
         
         <div class="stats">
@@ -225,31 +240,68 @@ def main():
             f.write('</div>')
 
             if total_urls > 0:
-                f.write(f'<div class="success"><strong>✅ {total_urls} URLs découvertes</strong> avec différents codes de statut.</div>')
+                f.write(f'<div class="success"><strong>✅ {total_urls} URLs découvertes</strong> avec common.txt local et récursion intelligente.</div>')
             else:
-                f.write('<div class="warning"><strong>⚠️ Aucune URL découverte</strong> avec la wordlist utilisée.</div>')
+                f.write('<div class="warning"><strong>⚠️ Aucune URL découverte</strong> avec common.txt local. Le site pourrait avoir une structure non-standard ou être bien protégé.</div>')
 
-            # Identifier les découvertes critiques
-            critical_keywords = ['admin', 'login', 'password', 'config', 'backup', 'private', 'secret', 'debug', 'phpmyadmin']
+            # Identifier les découvertes critiques (optimisé pour common.txt)
+            critical_keywords = ['admin', 'login', 'password', 'config', 'backup', 'private', 'secret', 'debug', 'phpmyadmin', 'mysql']
+            interesting_keywords = ['upload', 'api', 'panel', 'dashboard', 'test', 'dev', 'staging', 'auth']
+            info_keywords = ['robots.txt', 'sitemap.xml', 'phpinfo', 'info.php', '.htaccess']
+            
+            critical_findings = []
             interesting_findings = []
+            info_findings = []
             
             for url, result in ferox_results.items():
                 for url_data in result['found_urls']:
-                    url_path = url_data['url']
-                    if any(keyword in url_path.lower() for keyword in critical_keywords):
+                    url_path = url_data['url'].lower()
+                    if any(keyword in url_path for keyword in critical_keywords):
+                        critical_findings.append(url_data)
+                    elif any(keyword in url_path for keyword in interesting_keywords):
                         interesting_findings.append(url_data)
+                    elif any(keyword in url_path for keyword in info_keywords):
+                        info_findings.append(url_data)
 
-            if interesting_findings:
+            if critical_findings:
                 f.write('<div class="critical-findings">')
                 f.write('<h3>🚨 Découvertes Critiques</h3>')
                 f.write('<p>URLs potentiellement sensibles détectées :</p>')
+                for finding in critical_findings:
+                    status_class = f"status-{finding['status']}"
+                    code_class = f"code-{finding['status']}"
+                    f.write(f'''
+                    <div class="url-result {status_class}">
+                        <span class="status-code {code_class}">{finding['status']}</span>
+                        <span class="url-text">🔴 {finding['url']}</span>
+                    </div>''')
+                f.write('</div>')
+
+            if interesting_findings:
+                f.write('<div class="warning">')
+                f.write('<h3>⚠️ Découvertes Intéressantes</h3>')
+                f.write('<p>URLs méritant une investigation :</p>')
                 for finding in interesting_findings:
                     status_class = f"status-{finding['status']}"
                     code_class = f"code-{finding['status']}"
                     f.write(f'''
                     <div class="url-result {status_class}">
                         <span class="status-code {code_class}">{finding['status']}</span>
-                        <span>🔴 {finding['url']}</span>
+                        <span class="url-text">🟡 {finding['url']}</span>
+                    </div>''')
+                f.write('</div>')
+
+            if info_findings:
+                f.write('<div class="info">')
+                f.write('<h3>ℹ️ Fichiers d\'Information</h3>')
+                f.write('<p>Fichiers informatifs standard découverts :</p>')
+                for finding in info_findings:
+                    status_class = f"status-{finding['status']}"
+                    code_class = f"code-{finding['status']}"
+                    f.write(f'''
+                    <div class="url-result {status_class}">
+                        <span class="status-code {code_class}">{finding['status']}</span>
+                        <span class="url-text">🔵 {finding['url']}</span>
                     </div>''')
                 f.write('</div>')
 
@@ -291,52 +343,80 @@ def main():
                             f.write(f'''
                             <div class="url-result {status_class}">
                                 <span class="status-code {code_class}">{url_data['status']}</span>
-                                <span>{url_data['url']}</span>
+                                <span class="url-text">{url_data['url']}</span>
                             </div>''')
                 
                 if result['errors']:
-                    f.write(f'<details><summary>Erreurs</summary><pre>{result["errors"]}</pre></details>')
+                    f.write(f'<details><summary>Erreurs/Avertissements</summary><pre>{result["errors"]}</pre></details>')
                 
                 f.write('</div>')
 
             f.write("""
         <h2>🛡️ Recommandations de Sécurité</h2>
         <div class="info">
-            <h3>💡 Actions Recommandées</h3>
+            <h3>💡 Actions Recommandées pour common.txt</h3>
             <ul>
                 <li><strong>Code 200 (Succès):</strong> Examinez le contenu pour des informations sensibles</li>
                 <li><strong>Code 301/302 (Redirections):</strong> Vérifiez les destinations des redirections</li>
-                <li><strong>Code 403 (Interdit):</strong> Répertoires existants mais protégés - vérifiez la sécurité</li>
-                <li><strong>Code 500 (Erreur serveur):</strong> Erreurs potentielles révélant des informations</li>
+                <li><strong>Code 401 (Non autorisé):</strong> Ressources protégées - testez l'authentification</li>
+                <li><strong>Code 403 (Interdit):</strong> Répertoires existants mais protégés - vérifiez la configuration</li>
+                <li><strong>Code 405 (Méthode non autorisée):</strong> Endpoint existe - testez d'autres méthodes HTTP</li>
+                <li><strong>Code 500 (Erreur serveur):</strong> Erreurs pouvant révéler des informations système</li>
                 <li><strong>Panels d'admin:</strong> Sécurisez les interfaces d'administration découvertes</li>
-                <li><strong>Fichiers de backup:</strong> Supprimez ou protégez les fichiers de sauvegarde exposés</li>
+                <li><strong>APIs découvertes:</strong> Testez l'authentification et les permissions</li>
+            </ul>
+        </div>
+        
+        <div class="info">
+            <h3>⚡ À propos de Feroxbuster + common.txt</h3>
+            <p><strong>Feroxbuster</strong> avec <strong>common.txt</strong> offre un équilibre optimal entre vitesse et couverture :</p>
+            <ul>
+                <li><strong>Récursion intelligente:</strong> Explore automatiquement les sous-répertoires découverts</li>
+                <li><strong>Multi-threading:</strong> 100 threads simultanés pour une vitesse maximale</li>
+                <li><strong>Auto-tuning:</strong> Ajuste automatiquement les performances selon la cible</li>
+                <li><strong>Gestion d'état:</strong> Analyse différents codes de statut HTTP</li>
+                <li><strong>Extensions multiples:</strong> Teste automatiquement plusieurs extensions de fichiers</li>
             </ul>
         </div>
         
         <div class="warning">
-            <strong>⚠️ Note importante:</strong> Feroxbuster est optimisé pour la rapidité. 
-            Un scan plus approfondi avec des wordlists étendues pourrait révéler davantage de contenu.
+            <strong>⚠️ Note importante:</strong> Ce scan utilise common.txt local avec récursion limitée (profondeur 3). 
+            Feroxbuster peut découvrir plus de contenu avec des wordlists spécialisées et une profondeur augmentée.
         </div>
         
         <div class="info">
             <h3>🔍 Analyse Manuelle Recommandée</h3>
             <ul>
-                <li>Visitez manuellement chaque URL découverte</li>
-                <li>Testez l'authentification sur les panels d'administration</li>
-                <li>Vérifiez les permissions d'accès aux répertoires</li>
-                <li>Recherchez des fuites d'informations dans les erreurs</li>
-                <li>Analysez le contenu des fichiers accessibles</li>
+                <li>Visitez chaque URL découverte dans un navigateur</li>
+                <li>Testez l'authentification sur les endpoints protégés (401/403)</li>
+                <li>Analysez les redirections pour comprendre la structure du site</li>
+                <li>Testez différentes méthodes HTTP sur les endpoints 405</li>
+                <li>Examinez les erreurs 500 pour des fuites d'informations</li>
+                <li>Vérifiez les permissions sur les APIs découvertes</li>
+                <li>Analysez le contenu des fichiers informatifs (robots.txt, etc.)</li>
             </ul>
         </div>
         
         <div class="info">
-            <h3>📊 Codes de Statut HTTP</h3>
+            <h3>📊 Guide des Codes de Statut HTTP</h3>
             <ul>
-                <li><strong>200:</strong> Contenu accessible - À examiner</li>
-                <li><strong>301/302:</strong> Redirection - Suivre la destination</li>
-                <li><strong>403:</strong> Accès interdit - Répertoire existe mais protégé</li>
-                <li><strong>404:</strong> Non trouvé - Normal</li>
-                <li><strong>500:</strong> Erreur serveur - Peut révéler des informations</li>
+                <li><strong>200 (OK):</strong> Contenu accessible - À examiner en priorité</li>
+                <li><strong>301/302 (Redirection):</strong> Suivre la destination pour analyse</li>
+                <li><strong>401 (Non autorisé):</strong> Authentification requise - tester credentials</li>
+                <li><strong>403 (Interdit):</strong> Ressource existe mais accès refusé</li>
+                <li><strong>405 (Méthode non autorisée):</strong> Endpoint valide, tester GET/POST/PUT</li>
+                <li><strong>500 (Erreur serveur):</strong> Peut révéler des informations sur l'infrastructure</li>
+            </ul>
+        </div>
+        
+        <div class="success">
+            <h3>🚀 Optimisations Feroxbuster Appliquées</h3>
+            <ul>
+                <li><strong>Auto-tune activé:</strong> Optimisation automatique selon la réactivité du serveur</li>
+                <li><strong>Filtrage intelligent:</strong> Focus sur les codes de statut pertinents</li>
+                <li><strong>Extensions ciblées:</strong> Test des extensions les plus courantes</li>
+                <li><strong>Récursion contrôlée:</strong> Exploration des sous-répertoires sans spirale infinie</li>
+                <li><strong>Timeouts optimisés:</strong> Équilibre entre vitesse et fiabilité</li>
             </ul>
         </div>
     </div>
@@ -349,13 +429,8 @@ def main():
         print(f"❌ Erreur lors de la génération du rapport: {e}")
         return
 
-    # Nettoyage de la wordlist temporaire
-    if selected_wordlist == "ferox_wordlist.txt":
-        try:
-            os.remove(selected_wordlist)
-            print(f"🗑️ Wordlist temporaire supprimée")
-        except:
-            pass
+    # Nettoyage - pas de wordlist temporaire à supprimer
+    # (common.txt est permanent dans le répertoire)
 
     # Chiffrement
     try:

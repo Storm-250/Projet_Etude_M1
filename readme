@@ -1,5 +1,11 @@
 # Construire et lancer le projet
 docker-compose up --build
 
+# Localhost
+http://127.0.0.1:5000
+
+# Mot de passe de base
+changeme
+
 # Arrêter
 docker-compose down
